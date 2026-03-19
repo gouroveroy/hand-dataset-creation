@@ -3,16 +3,53 @@
 import { useState } from "react";
 import { Upload, Camera, Trash2 } from "lucide-react";
 import { CanvasEditor } from "./CanvasEditor";
-import { ImageCropper } from "./ImageCropper";
+
+const processImageToSquare = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      const size = Math.max(img.width, img.height);
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, size, size);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          resolve(new File([blob], file.name, { type: file.type || "image/jpeg" }));
+        },
+        file.type || "image/jpeg",
+        0.95
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+};
 
 export function AnnotationWorkspace() {
   const [files, setFiles] = useState<File[]>([]);
-  const [uncroppedFiles, setUncroppedFiles] = useState<File[]>([]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setUncroppedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+      const newFiles = Array.from(e.target.files);
+      const processedFiles = await Promise.all(newFiles.map(processImageToSquare));
+      setFiles((prev) => [...prev, ...processedFiles]);
     }
     // reset input
     e.target.value = '';
@@ -39,37 +76,7 @@ export function AnnotationWorkspace() {
     }
   };
 
-  const handleCropComplete = (croppedFile: File) => {
-    setFiles((prev) => [...prev, croppedFile]);
-    setUncroppedFiles((prev) => prev.slice(1));
-  };
 
-  const handleCropCancel = () => {
-    // If they cancel cropping, we just skip this file
-    setUncroppedFiles((prev) => prev.slice(1));
-  };
-
-  if (uncroppedFiles.length > 0) {
-    return (
-      <div className="flex-1 flex flex-col h-full bg-black overflow-hidden">
-        <div className="flex items-center justify-between p-3 bg-secondary/50 border-b shrink-0">
-          <div className="text-sm font-medium text-foreground">
-            Crop Image <span className="text-primary">{currentIndex + 1}</span>
-          </div>
-          <div className="text-xs text-muted-foreground hidden sm:block">
-            Adjust the square to fit your target area
-          </div>
-        </div>
-        <div className="flex-1 relative min-h-0 w-full">
-          <ImageCropper 
-            file={uncroppedFiles[0]} 
-            onCropComplete={handleCropComplete} 
-            onCancel={handleCropCancel} 
-          />
-        </div>
-      </div>
-    );
-  }
 
   if (files.length === 0) {
     return (
@@ -78,7 +85,7 @@ export function AnnotationWorkspace() {
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Add Images to Annotate</h2>
             <p className="text-muted-foreground mt-2">
-              Upload multiple images from your device or take a photo directly. You will be prompted to crop them to 1:1 ratio.
+              Upload multiple images from your device or take a photo directly. They will be automatically resized to a 1:1 square ratio.
             </p>
           </div>
 
