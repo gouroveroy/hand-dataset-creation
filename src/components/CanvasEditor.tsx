@@ -176,8 +176,14 @@ export function CanvasEditor({ file, onSaved }: CanvasEditorProps) {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - offset.x) / scale;
-    const y = (e.clientY - rect.top - offset.y) / scale;
+    let x = (e.clientX - rect.left - offset.x) / scale;
+    let y = (e.clientY - rect.top - offset.y) / scale;
+
+    if (image) {
+      x = Math.max(0, Math.min(x, image.width));
+      y = Math.max(0, Math.min(y, image.height));
+    }
+
     return { x, y };
   };
 
@@ -288,7 +294,17 @@ export function CanvasEditor({ file, onSaved }: CanvasEditorProps) {
         const idx = boxes.findIndex(b => b.id === selectedBox);
         if (idx !== -1) {
           const newBoxes = [...boxes];
-          newBoxes[idx] = { ...newBoxes[idx], x: coords.x - dragOffset.x, y: coords.y - dragOffset.y };
+          const box = newBoxes[idx];
+          
+          let newX = coords.x - dragOffset.x;
+          let newY = coords.y - dragOffset.y;
+          
+          if (image) {
+            newX = Math.max(0, Math.min(newX, image.width - box.w));
+            newY = Math.max(0, Math.min(newY, image.height - box.h));
+          }
+          
+          newBoxes[idx] = { ...box, x: newX, y: newY };
           setBoxes(newBoxes);
           return true;
         }
