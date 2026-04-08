@@ -377,6 +377,12 @@ export function CanvasEditor({ file, onSaved }: CanvasEditorProps) {
       if (annError) throw annError;
       const { data: { publicUrl: annUrl } } = supabase.storage.from('dataset_images').getPublicUrl(annPath);
 
+      let topPointingType = "None";
+      const handWithPointing = hands.find(h => h.pointing_type && h.pointing_type !== "");
+      if (handWithPointing) {
+        topPointingType = handWithPointing.pointing_type!;
+      }
+
       // 3. Save coordinates to DB
       const { error: dbError } = await supabase.from('annotations').insert({
         user_id: userId,
@@ -384,7 +390,8 @@ export function CanvasEditor({ file, onSaved }: CanvasEditorProps) {
         annotated_image_url: annUrl,
         hand_boxes: hands,
         target_boxes: targets,
-        fingertips: fingertips
+        fingertips: fingertips,
+        pointing_type: topPointingType
       });
 
       if (dbError) throw dbError;
