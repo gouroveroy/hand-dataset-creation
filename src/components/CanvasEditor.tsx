@@ -403,9 +403,10 @@ export function CanvasEditor({ file, onSaved }: CanvasEditorProps) {
       refreshCount();
       onSaved();
       
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to save annotation to Supabase.");
+      const errMsg = e?.message || e?.error_description || JSON.stringify(e);
+      alert(`Failed to save annotation to Supabase: ${errMsg}`);
     } finally {
       setIsSaving(false);
     }
